@@ -282,6 +282,13 @@ def _gen_dir_name():
     return f'{now_str}_{rand_str}'
 
 
+def dict_to(d, device):
+    return {
+        k: v.to(device)
+        for k, v in d.items()
+    }
+
+
 class Log:
     def __init__(self, root_log_dir, cfg_dict,
                  txt_filename='log.txt',

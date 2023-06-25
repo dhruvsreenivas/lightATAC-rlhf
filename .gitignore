@@ -131,3 +131,6 @@ dmypy.json
 # lightATAC
 *results/
 *test*/
+
+# offline data
+offline_data*
