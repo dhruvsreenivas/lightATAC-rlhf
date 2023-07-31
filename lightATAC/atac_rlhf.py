@@ -203,7 +203,7 @@ class ATACRLHF(nn.Module):
             r_loss = rw * curr_r_loss + (1.0 - rw) * target_r_loss
             
             ## Compute full q loss (qf_loss = pess_loss + beta1 * qf_bellman_loss - beta2 * reward_loss)
-            qfr_loss += normalized_triple_sum(pess_loss, qf_bellman_loss, r_loss, self.bellman_beta, -self.reward_beta) # negate as done in theory
+            qfr_loss += normalized_triple_sum(pess_loss, qf_bellman_loss, r_loss, self.bellman_beta, self.reward_beta) # theory actually doesn't negate, we're minimizing this obj as opposed to max log prob
 
         # Update q
         self._qf_optimizer.zero_grad()
