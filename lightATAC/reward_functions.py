@@ -12,7 +12,7 @@ class RewardFunction(nn.Module):
         
     def forward(self, state, action):
         if self.ignore_actions:
-            # here they just treat actions as 0 input as opposed to not even inputting anything...
+            # here they just treat actions as 0 input as opposed to not even inputting anything, so we do the same thing...
             action = action * 0
             
         sa = torch.cat([state, action], dim=-1)

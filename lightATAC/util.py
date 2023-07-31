@@ -86,6 +86,10 @@ def cat_data_dicts(*data_dicts):
 def normalized_sum(loss, reg, w):
     return loss/w + reg if w>1 else loss + w*reg
 
+def normalized_triple_sum(loss, reg1, reg2, w1, w2):
+    assert w1 <= 1 and w2 <= 1
+    return loss + w1 * reg1 + w2 * reg2
+
 def asymmetric_l2_loss(u, tau):
     return torch.mean(torch.abs(tau - (u < 0).float()) * u**2)
 

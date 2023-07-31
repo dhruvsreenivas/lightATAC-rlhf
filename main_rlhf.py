@@ -173,6 +173,7 @@ def main(args):
             log.row(eval_metrics)
             for k, v in eval_metrics.items():
                 writer.add_scalar('Eval/'+k, v, step)
+    
     # Final processing
     torch.save(rl.state_dict(), log.dir/'final.pt')
     log.close()
@@ -202,5 +203,6 @@ if __name__ == '__main__':
     
     # reward learning
     parser.add_argument('--segment_length', type=int, default=15)
+    parser.add_argument('--num_reward_epochs', type=int, default=50)
     
     main(parser.parse_args())
