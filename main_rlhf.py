@@ -10,7 +10,7 @@ from lightATAC.reward_functions import RewardFunction # no ensemble or anything 
 from lightATAC.util import Log, set_seed
 from lightATAC.bp import BehaviorPretraining
 from lightATAC.atac_rlhf import ATACRLHF
-from lightATAC.util import evaluate_policy, sample_batch, traj_data_to_qlearning_data, tuple_to_traj_data, DEFAULT_DEVICE
+from lightATAC.util import evaluate_policy, sample_batch_no_reward, traj_data_to_qlearning_data, tuple_to_traj_data, DEFAULT_DEVICE
 
 EPS=1e-6
 
@@ -159,7 +159,7 @@ def main(args):
     
     # ------------------ Main Training ------------------ #
     for step in trange(args.n_steps):
-        train_metrics = rl.update(**sample_batch(dataset, args.batch_size))
+        train_metrics = rl.update(**sample_batch_no_reward(dataset, args.batch_size))
         if step % max(int(args.eval_period/10),1) == 0  or  step==args.n_steps-1:
             print(train_metrics)
             for k, v in train_metrics.items():
