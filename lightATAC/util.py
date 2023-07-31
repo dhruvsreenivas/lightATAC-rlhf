@@ -250,6 +250,15 @@ def sample_batch(dataset, batch_size):
     return {k: torchify(v[indices]) for k, v in dataset.items()}
 
 
+def sample_batch_no_reward(dataset, batch_size):
+    k = list(dataset.keys())[0]
+    n, device = len(dataset[k]), DEFAULT_DEVICE
+    for v in dataset.values():
+        assert len(v) == n, "Dataset values must have same length."
+    indices = np.random.randint(low=0, high=n, size=(batch_size,))
+    return {k: torchify(v[indices]) for k, v in dataset.items() if k != "rewards"}
+
+
 def evaluate_policy(env, policy, max_episode_steps, deterministic=True, discount = 0.99):
     obs = env.reset()
     total_reward = 0.

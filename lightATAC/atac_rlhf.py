@@ -123,7 +123,9 @@ class ATACRLHF(nn.Module):
         # return reward loss info
         return loss.detach().cpu().item()
 
-    def update(self, observations, actions, next_observations, rewards, terminals, pref_batch, **kwargs):
+    def update(self, observations, actions, next_observations, terminals, pref_batch, **kwargs):
+        # get the rewards from the current reward model
+        rewards = self.reward(observations, actions)
         rewards = rewards.flatten()
         terminals = terminals.flatten().float()
         
