@@ -104,6 +104,11 @@ class ATACRLHF(nn.Module):
         """Updates the reward model of ATAC with the BCE loss on the preferences."""
         # inputs are of size (batch_size, seg_len, *dims) -> linear layers and stuff should handle multibatch input great
         
+        pref_batch = {
+            k: v.to(DEFAULT_DEVICE)
+            for k, v in pref_batch.items()
+        }
+        
         # reward preds
         r1 = self.reward(pref_batch["observations1"], pref_batch["actions1"]).sum(1) # (batch_size, 1)
         r2 = self.reward(pref_batch["observations2"], pref_batch["actions2"]).sum(1) # (batch_size, 1)
@@ -125,7 +130,7 @@ class ATACRLHF(nn.Module):
 
     def update(self, observations, actions, next_observations, terminals, pref_batch, **kwargs):
         # get the rewards from the current reward model
-        rewards = self.reward(observations, actions)
+        rewards = self.reward(observations, actions).detach()
         rewards = rewards.flatten()
         terminals = terminals.flatten().float()
         

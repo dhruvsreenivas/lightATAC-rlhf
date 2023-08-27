@@ -166,7 +166,6 @@ def slice_dist(dist, slice):
         setattr(new, k, sliced_v)
     return new
 
-
 # Below are modified from gwthomas/IQL-PyTorch
 
 class Squeeze(nn.Module):

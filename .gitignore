@@ -130,6 +130,7 @@ dmypy.json
 
 # lightATAC
 *results/
+*results_rlhf/
 *test*/
 
 # offline data

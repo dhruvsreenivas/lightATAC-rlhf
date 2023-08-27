@@ -1,3 +1,6 @@
+import warnings
+warnings.filterwarnings("ignore")
+
 from pathlib import Path
 import gym, d4rl
 import numpy as np
@@ -7,7 +10,7 @@ from tqdm import trange
 from lightATAC.policy import GaussianPolicy
 from lightATAC.value_functions import TwinQ
 from lightATAC.reward_functions import RewardFunction # no ensemble or anything here for now
-from lightATAC.util import Log, set_seed
+from lightATAC.util import Log, set_seed, dict_to
 from lightATAC.bp import BehaviorPretraining
 from lightATAC.atac_rlhf import ATACRLHF
 from lightATAC.util import evaluate_policy, sample_batch_no_reward, traj_data_to_qlearning_data, tuple_to_traj_data, DEFAULT_DEVICE
@@ -39,6 +42,11 @@ def eval_reward(agent, preference_dataset):
     num_correct = 0
     for i in range(len(preference_dataset)):
         dp = preference_dataset[i]
+        
+        dp = {
+            k: v.to(DEFAULT_DEVICE)
+            for k, v in dp.items()
+        }
         
         r1 = agent.reward(dp["observations1"], dp["actions1"]).sum()
         r2 = agent.reward(dp["observations2"], dp["actions2"]).sum()
@@ -81,7 +89,7 @@ def main(args):
     set_seed(args.seed, env=env)
     
     # Set up preference dataset
-    preference_dataset = torch.load(f"./offline_data/{args.env_name}_snippet_preference_dataset_seglen{args.segment_length}.pt")
+    preference_dataset = torch.load(f"./offline_data/{args.env_name}_snippet_preference_dataset_seglen{args.segment_length}_deterministic.pt")
     preference_dataloader = torch.utils.data.DataLoader(
         preference_dataset,
         batch_size=args.batch_size,
@@ -96,7 +104,7 @@ def main(args):
         Vmin = min(0.0, dataset['rewards'].min()/(1-args.discount), Vmax-1.0/(1-args.discount))
 
     # Setup logger
-    log_path = Path(args.log_dir) / args.env_name / ('_beta' + str(args.beta))
+    log_path = Path(args.log_dir) / args.env_name / ('_bellman_beta' + str(args.bellman_beta) + '_reward_beta' + str(args.reward_beta))
     log = Log(log_path, vars(args))
     log(f'Log dir: {log.dir}')
     writer = SummaryWriter(log.dir)
@@ -120,14 +128,18 @@ def main(args):
         buffer_batch_size=args.batch_size,
         policy_lr=args.slow_lr,
         qf_lr=args.fast_lr,
+        reward_lr=args.fast_lr,
+        
         # ATAC main parameters
-        beta=args.beta, # the regularization coefficient in front of the Bellman error
+        bellman_beta=args.bellman_beta, # the regularization coefficient in front of the Bellman error
+        reward_beta=args.reward_beta,
         Vmin=Vmin,
         Vmax=Vmax,
     ).to(DEFAULT_DEVICE)
 
     # ------------------ Pretraining ------------------ #
     # train reward model
+    print("==== Pretraining reward model. ====")
     for epoch in range(args.num_reward_epochs):
         epoch_loss = 0.0
         count = 0
@@ -141,13 +153,16 @@ def main(args):
         print(f"average reward pretraining accuracy at epoch {epoch}: {eval_reward(rl, preference_dataset)}")
         
     # label rewards in dataset for initial pi, Q function pretraining
+    print("==== Starting reward relabeling. ====")
     for i in range(len(dataset)):
         obs = torch.from_numpy(dataset["observations"][i]).to(DEFAULT_DEVICE)
         act = torch.from_numpy(dataset["actions"][i]).to(DEFAULT_DEVICE)
-        reward = rl.reward(obs, act)
-        dataset["rewards"][i] = reward.detach().cpu().item()
+        reward = rl.reward(obs, act).squeeze().detach().cpu().numpy()
+        assert reward.shape == dataset["rewards"][i].shape
+        dataset["rewards"][i] = reward
     
     # Train policy and value to fit the behavior data
+    print("==== Starting behavior pretraining. ====")
     bp = BehaviorPretraining(qf=qf, target_qf=target_qf, policy=policy, lr=args.fast_lr, discount=args.discount,
                              td_weight=0.5, rs_weight=0.5, fixed_alpha=None, action_shape=act_dim,
                              Vmin=Vmin, Vmax=Vmax,).to(DEFAULT_DEVICE)
@@ -158,6 +173,7 @@ def main(args):
     dataset = bp.train(dataset, args.n_warmstart_steps, log_fun=bp_log_fun)  # This ensures "next_observations" is in `dataset`.
     
     # ------------------ Main Training ------------------ #
+    print("==== Starting main training. ====")
     for step in trange(args.n_steps):
         train_metrics = rl.update(**sample_batch_no_reward(dataset, args.batch_size))
         if step % max(int(args.eval_period/10),1) == 0  or  step==args.n_steps-1:
@@ -195,7 +211,8 @@ if __name__ == '__main__':
     parser.add_argument('--batch_size', type=int, default=256)
     parser.add_argument('--fast_lr', type=float, default=5e-4)
     parser.add_argument('--slow_lr', type=float, default=5e-7)
-    parser.add_argument('--beta', type=float, default=3.0)
+    parser.add_argument('--bellman_beta', type=float, default=3.0)
+    parser.add_argument('--reward_beta', type=float, default=1.0)
     parser.add_argument('--eval_period', type=int, default=5000)
     parser.add_argument('--n_eval_episodes', type=int, default=10)
     parser.add_argument('--n_warmstart_steps', type=int, default=100*10**3)
