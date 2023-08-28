@@ -157,7 +157,7 @@ def main(args):
     for i in range(len(dataset)):
         obs = torch.from_numpy(dataset["observations"][i]).to(DEFAULT_DEVICE)
         act = torch.from_numpy(dataset["actions"][i]).to(DEFAULT_DEVICE)
-        reward = rl.reward(obs, act).squeeze().detach().cpu().numpy()
+        reward = rl.reward(obs, act).squeeze().detach().cpu().numpy() # (1,)
         assert reward.shape == dataset["rewards"][i].shape
         dataset["rewards"][i] = reward
     
@@ -175,7 +175,11 @@ def main(args):
     # ------------------ Main Training ------------------ #
     print("==== Starting main training. ====")
     for step in trange(args.n_steps):
-        train_metrics = rl.update(**sample_batch_no_reward(dataset, args.batch_size))
+        pref_batch = preference_dataset.sample(args.batch_size)
+        offline_batch = sample_batch_no_reward(dataset, args.batch_size)
+        offline_batch.update({"pref_batch": pref_batch})
+        
+        train_metrics = rl.update(**offline_batch)
         if step % max(int(args.eval_period/10),1) == 0  or  step==args.n_steps-1:
             print(train_metrics)
             for k, v in train_metrics.items():

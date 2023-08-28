@@ -135,7 +135,7 @@ class ATACRLHF(nn.Module):
         terminals = terminals.flatten().float()
         
         # get label for pref batch
-        lbl = pref_batch["label"]
+        lbl = pref_batch["label"].long().to(DEFAULT_DEVICE)
 
         ##### Update Critic #####
         def compute_bellman_backup(q_pred_next):
@@ -173,13 +173,15 @@ class ATACRLHF(nn.Module):
         ## ====================== reward loss component computation =================== ##
         
         def get_preference_rewards(reward_fn):
-            s_tau1, s_tau2 = pref_batch["observations1"], pref_batch["observations2"]
-            a_tau1, a_tau2 = pref_batch["actions1"], pref_batch["actions2"]
+            s_tau1, s_tau2 = pref_batch["observations1"].to(DEFAULT_DEVICE), pref_batch["observations2"].to(DEFAULT_DEVICE)
+            a_tau1, a_tau2 = pref_batch["actions1"].to(DEFAULT_DEVICE), pref_batch["actions2"].to(DEFAULT_DEVICE)
             r1, r2 = compute_batched(
                 reward_fn,
                 [s_tau1, s_tau2],
                 [a_tau1, a_tau2]
             )
+            r1 = r1.sum(dim=1)
+            r2 = r2.sum(dim=1)
             r = torch.cat([r1, r2], dim=-1)
             return r
         
@@ -202,7 +204,7 @@ class ATACRLHF(nn.Module):
             else:  # initial state pess. ATAC0
                 pess_loss = qfna.mean()
                 
-            # compute the reward term of loss, try to be similar to how the bellman backup was computed (how to do target reward here appropriately)
+            # compute the reward term of loss, try to be similar to how the bellman backup was computed (target reward seems to be the move here to compute that reward term)
             r = get_preference_rewards(self.reward)
             target_r = get_preference_rewards(self.target_reward)
             curr_r_loss = F.cross_entropy(r, lbl)
