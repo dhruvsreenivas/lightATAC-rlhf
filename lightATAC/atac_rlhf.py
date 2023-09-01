@@ -255,6 +255,7 @@ class ATACRLHF(nn.Module):
                         qf_bellman_loss=qf_bellman_loss.item(),
                         pess_loss=pess_loss.item(),
                         alpha_loss=alpha_loss.item(),
+                        reward_loss=r_loss.item(),
                         policy_entropy=policy_entropy.item(),
                         alpha=alpha.item(),
                         lower_bound=lower_bound.item())
